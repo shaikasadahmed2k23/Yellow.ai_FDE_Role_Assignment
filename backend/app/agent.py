@@ -99,6 +99,8 @@ def handle_message(session: Session, user_text: str) -> str:
             except json.JSONDecodeError:
                 args = {}
 
+            print(f"[TOOL CALL] {name}({args})")
+
             executor = tools.TOOL_EXECUTORS.get(name)
             if not executor:
                 result = {"ok": False, "error": f"Unknown tool {name}"}
@@ -107,6 +109,8 @@ def handle_message(session: Session, user_text: str) -> str:
                     result = executor(args, session)
                 except Exception as e:  # failure recovery: never crash the conversation
                     result = {"ok": False, "error": f"Internal error running {name}: {e}"}
+
+            print(f"[TOOL RESULT] {name} -> {result}")
 
             session.messages.append(_tool_result_message(tc.id, name, result))
 
