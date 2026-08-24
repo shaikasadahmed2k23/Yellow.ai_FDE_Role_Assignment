@@ -12,7 +12,7 @@ from groq import Groq
 from . import tools
 from .session import Session
 
-_MODEL = os.environ.get("TRENDLY_MODEL", "llama-3.3-70b-versatile")
+_MODEL = os.environ.get("TRENDLY_MODEL", "openai/gpt-oss-120b")
 _MAX_TOOL_ITERATIONS = 6  # failure-recovery bound: don't let the model loop forever
 
 _POLICY_PATH = os.path.join(os.path.dirname(__file__), "data", "trendly_policy.md")
