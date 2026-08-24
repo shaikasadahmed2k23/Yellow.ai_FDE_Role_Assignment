@@ -69,7 +69,25 @@ def handle_message(session: Session, user_text: str) -> str:
             temperature=0.2,
         )
         msg = response.choices[0].message
-        session.messages.append({"role": "assistant", "content": msg.content, "tool_calls": msg.tool_calls})
+
+        # msg.tool_calls are SDK objects, not plain dicts - must convert before
+        # storing, since the full messages list gets JSON-serialized on every
+        # subsequent API call (this is what a naive `msg.tool_calls` passthrough breaks).
+        tool_calls_payload = None
+        if msg.tool_calls:
+            tool_calls_payload = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                }
+                for tc in msg.tool_calls
+            ]
+
+        assistant_turn = {"role": "assistant", "content": msg.content}
+        if tool_calls_payload:
+            assistant_turn["tool_calls"] = tool_calls_payload
+        session.messages.append(assistant_turn)
 
         if not msg.tool_calls:
             return msg.content or "Sorry, I didn't catch that - could you rephrase?"
