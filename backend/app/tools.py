@@ -127,8 +127,7 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "order_id": {"type": "string", "description": "Omit if not order-specific"},
-                    "reason": {"type": "string", "description": "Short category, e.g. 'lost_parcel', 'cod_bank_details', 'damaged_item', 'out_of_policy'"},
+                    "order_id": {"type": "string", "description": "The order ID if this escalation relates to a specific order, e.g. TR-4521. If there is no specific order (e.g. a general question or a request with no order mentioned), do not include this parameter at all - never pass null."},                    "reason": {"type": "string", "description": "Short category, e.g. 'lost_parcel', 'cod_bank_details', 'damaged_item', 'out_of_policy'"},
                     "summary": {"type": "string", "description": "2-3 sentence summary a human agent can act on immediately, including what's already been checked/ruled out"},
                     "priority": {"type": "string", "enum": ["normal", "high"]},
                 },

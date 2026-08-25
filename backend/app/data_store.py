@@ -10,7 +10,7 @@ import json
 import os
 from typing import Optional
 
-_DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "orders.json")
+_DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "orders_runtime.json")
 
 with open(_DATA_PATH, "r", encoding="utf-8") as f:
     _RAW = json.load(f)
