@@ -17,8 +17,8 @@ app = FastAPI(title="Trendly Support Assistant")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://trendly-frontend.vercel.app", "http://127.0.0.1:5500"],
-    allow_methods=["POST"],
+    allow_origins=["https://yellow-ai-fde-role-assignment.vercel.app", "http://127.0.0.1:5500"],
+    allow_methods=["POST", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
 
