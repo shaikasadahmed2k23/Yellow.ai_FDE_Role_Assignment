@@ -178,17 +178,25 @@
 
   #signature-callout {
     position: fixed;
-    right: 88px;
-    bottom: 96px;
-    width: 210px;
+    right: 66px;
+    bottom: 92px;
+    width: 200px;
     pointer-events: none;
     z-index: 900;
+    opacity: 0;
+    transform: translateY(6px);
+    animation: sig-in 0.5s ease forwards 0.3s;
     transition: opacity 0.4s ease, transform 0.4s ease;
   }
 
   #signature-callout.hidden {
-    opacity: 0;
-    transform: translateY(6px);
+    opacity: 0 !important;
+    transform: translateY(6px) !important;
+    animation: none;
+  }
+
+  @keyframes sig-in {
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .signature-bubble {
@@ -201,27 +209,21 @@
     transform: rotate(-2deg);
   }
 
-  .signature-bubble::before,
-  .signature-bubble::after {
-    content: '';
+  .tail-dot {
     position: absolute;
     background: var(--surface);
     border: 1.5px solid var(--accent);
     border-radius: 50%;
+    animation: sig-nudge 1.8s ease-in-out infinite;
   }
 
-  .signature-bubble::before {
-    width: 16px;
-    height: 16px;
-    bottom: -20px;
-    right: 46px;
-  }
+  .tail-dot.dot-1 { width: 15px; height: 15px; bottom: -19px; right: 40px; animation-delay: 0s; }
+  .tail-dot.dot-2 { width: 10px; height: 10px; bottom: -30px; right: 26px; animation-delay: 0.12s; }
+  .tail-dot.dot-3 { width: 6px; height: 6px; bottom: -39px; right: 14px; animation-delay: 0.24s; }
 
-  .signature-bubble::after {
-    width: 9px;
-    height: 9px;
-    bottom: -32px;
-    right: 38px;
+  @keyframes sig-nudge {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(2px, 3px); }
   }
 
   .signature-text {
@@ -231,33 +233,6 @@
     line-height: 1.2;
     color: var(--brand);
     text-align: center;
-  }
-
-  .signature-arrow {
-    width: 110px;
-    height: 100px;
-    display: block;
-    margin: 4px 0 0 auto;
-    animation: sig-nudge 1.8s ease-in-out infinite;
-    animation-delay: 1.7s;
-  }
-
-  .signature-arrow .sig-shaft {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: sig-draw 0.9s ease forwards 0.3s;
-  }
-
-  .signature-arrow .sig-head {
-    opacity: 0;
-    animation: sig-head-in 0.25s ease forwards 1.15s;
-  }
-
-  @keyframes sig-draw { to { stroke-dashoffset: 0; } }
-  @keyframes sig-head-in { to { opacity: 1; } }
-  @keyframes sig-nudge {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(3px, 5px); }
   }
 
   @media (max-width: 480px) {
@@ -599,11 +574,10 @@
   <div id="signature-callout">
     <div class="signature-bubble">
       <div class="signature-text">My submission for the<br>FDE Assessment — Yellow.ai</div>
+      <span class="tail-dot dot-1"></span>
+      <span class="tail-dot dot-2"></span>
+      <span class="tail-dot dot-3"></span>
     </div>
-    <svg class="signature-arrow" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path class="sig-shaft" d="M70,6 C48,36 54,64 86,84" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" pathLength="1"/>
-      <polygon class="sig-head" points="94,92 78,80 83,98" fill="var(--accent)"/>
-    </svg>
   </div>
 
   <!-- Chat launcher -->
