@@ -8,7 +8,7 @@
 <link rel="shortcut icon" href="favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --ink: #1C1C1A;
@@ -110,11 +110,19 @@
     border-radius: var(--radius);
     overflow: hidden;
     background: var(--surface);
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+  }
+
+  .product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 24px rgba(28, 28, 26, 0.08);
   }
 
   .product-swatch {
     height: 200px;
-    background: var(--brand-softer);
+    background:
+      repeating-linear-gradient(135deg, rgba(31,58,46,0.05) 0px, rgba(31,58,46,0.05) 2px, transparent 2px, transparent 14px),
+      linear-gradient(160deg, var(--brand-softer), #DCE6E0);
     position: relative;
   }
 
@@ -122,7 +130,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(160deg, transparent 60%, rgba(31, 58, 46, 0.06));
+    background: linear-gradient(160deg, transparent 55%, rgba(31, 58, 46, 0.08));
   }
 
   .product-card p {
@@ -165,6 +173,62 @@
   #trendly-launcher .close-icon { display: none; }
   #trendly-launcher.open .chat-icon { display: none; }
   #trendly-launcher.open .close-icon { display: block; }
+
+  /* ---------- signature callout (dismisses on first chat open) ---------- */
+
+  #signature-callout {
+    position: fixed;
+    right: 92px;
+    bottom: 98px;
+    width: 190px;
+    text-align: right;
+    pointer-events: none;
+    z-index: 900;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  #signature-callout.hidden {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  .signature-text {
+    font-family: 'Caveat', cursive;
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--accent);
+    transform: rotate(-3deg);
+    margin: 0 4px 2px 0;
+  }
+
+  .signature-arrow {
+    width: 130px;
+    height: 84px;
+    display: block;
+    margin-left: auto;
+    animation: sig-nudge 1.8s ease-in-out infinite;
+    animation-delay: 1.6s;
+  }
+
+  .signature-arrow path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: sig-draw 1s ease forwards;
+  }
+
+  .signature-arrow path:first-child { animation-delay: 0.3s; }
+  .signature-arrow path:last-child { animation-delay: 1.2s; animation-duration: 0.3s; }
+
+  @keyframes sig-draw { to { stroke-dashoffset: 0; } }
+  @keyframes sig-nudge {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(4px, 4px); }
+  }
+
+  @media (max-width: 480px) {
+    #signature-callout { display: none; }
+  }
 
   /* ---------- chat panel ---------- */
 
@@ -497,6 +561,15 @@
     </div>
   </section>
 
+  <!-- Signature callout -->
+  <div id="signature-callout">
+    <div class="signature-text">My submission for the<br>FDE Assessment — Yellow.ai</div>
+    <svg class="signature-arrow" viewBox="0 0 140 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6,8 C68,2 120,26 120,58 C120,70 112,78 102,84" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" pathLength="1"/>
+      <path d="M102,84 L92,72 M102,84 L114,76" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/>
+    </svg>
+  </div>
+
   <!-- Chat launcher -->
   <button id="trendly-launcher" aria-label="Open support chat" aria-expanded="false">
     <svg class="chat-icon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -551,6 +624,7 @@ const API_BASE = "https://yellow-ai-fde-role-assignment.onrender.com";
 
   const launcher = document.getElementById('trendly-launcher');
   const panel = document.getElementById('trendly-panel');
+  const signatureCallout = document.getElementById('signature-callout');
   const messagesEl = document.getElementById('panel-messages');
   const input = document.getElementById('chat-input');
   const sendBtn = document.getElementById('send-btn');
@@ -726,6 +800,7 @@ const API_BASE = "https://yellow-ai-fde-role-assignment.onrender.com";
     panel.classList.add('open');
     launcher.classList.add('open');
     launcher.setAttribute('aria-expanded', 'true');
+    if (signatureCallout) signatureCallout.classList.add('hidden');
 
     if (!hasOpenedBefore) {
       hasOpenedBefore = true;
