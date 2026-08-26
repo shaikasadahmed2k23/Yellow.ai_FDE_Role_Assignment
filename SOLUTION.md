@@ -43,3 +43,42 @@ The system is a single FastAPI service exposing one primary endpoint, `POST /cha
 3. **What's the source of truth for orders in production** — a live OMS/Shopify-style API rather than a static dataset — and what latency, rate limits, or auth constraints does that system impose?
 4. **Is there an existing ticketing system** (Zendesk, Freshdesk, or similar) escalations should land in, rather than an internal log, and what fields does the human-agent team actually need in that handoff to act without re-asking the customer anything?
 5. **How often does the policy document change, and who owns it?** This determines whether keeping the full policy text in the prompt remains the right call as it grows, or whether a versioned/RAG-based approach becomes worth the added complexity.
+
+## Debugging journey
+
+Real issues hit during development and deployment, in roughly the order encountered. Included deliberately — the failure modes and recovery paths are as much a signal of engineering approach as the final working system.
+
+**Environment & setup**
+- `.env` wasn't being read by the server. `load_dotenv()` existed only in throwaway test scripts, not `main.py`, so `uvicorn` never saw the API key. Fixed by loading `.env` at the top of `main.py` before anything else initializes.
+- `groq==0.11.0` called httpx with a `proxies` kwarg that newer httpx versions reject, crashing on client init. Fixed by bumping to `groq==1.6.0`.
+- The default model, `llama-3.3-70b-versatile`, was deprecated by Groq mid-project (June 2026), returning a 404 `model_not_found`. Switched to `openai/gpt-oss-120b`.
+- PowerShell's `curl` is aliased to `Invoke-WebRequest`, which doesn't parse flags like real curl — early manual tests silently mangled requests. Switched to `Invoke-RestMethod` with correct PowerShell syntax for local testing.
+
+**Orchestration & correctness**
+- Right after any tool call, the next request threw a 500. The Groq SDK's `msg.tool_calls` are pydantic objects, not JSON-serializable, and were being stored raw in session history — breaking serialization on the *next* API call. Fixed by converting tool calls to plain dicts before storing.
+- The model would sometimes state a return/exchange verdict without ever calling the corresponding eligibility tool — most often on multi-item requests bundled into one message. This is the most safety-relevant bug found, since it bypasses the deterministic policy engine entirely. Fixed in two layers: (1) a sharpened, reordered system prompt with an explicit top-priority rule — never state eligibility without a matching tool call, one call per SKU; (2) a regex-based server-side safety net that inspects the final reply, and if it references a real order ID with eligibility language but no matching tool call exists in that session's history, forces one retry before degrading to a human-handoff message rather than risking a second unverified answer.
+- That safety net first tracked its retry state as a custom key inside the message dict — Groq's API validates message schema strictly and rejected it outright with a 400 "property unsupported" error. Fixed by scoping retry state to a local variable inside `handle_message()` instead of mutating the message object.
+- The same safety net then false-triggered on general, order-less policy answers (e.g. explaining the final-sale rule abstractly). Fixed by only enforcing the check when the reply actually references a specific `TR-####` order ID.
+- It also initially only recognized `check_return_eligibility`/`check_exchange_eligibility` as valid evidence, so a fully correct delay-credit or lost-parcel answer got falsely flagged too. Fixed by expanding the recognized tool list to include `check_delay_credit` and `is_lost_parcel`.
+- For the delayed-order scenario, the model sometimes jumped straight to "I'll arrange the credit" without acknowledging the customer's frustration first. Fixed by adding an explicit "acknowledge frustration before resolution" rule, placed near the top of the system prompt for visibility.
+- A request with no order mentioned (e.g. a direct refund ask) occasionally caused the model to pass literal `null` for `escalate_to_human`'s optional `order_id` param, which Groq's strict schema validator rejects — surfacing as an unhandled 500. Fixed by wrapping the whole Groq API call in try/except so any provider-side validation error degrades gracefully to a human-handoff message instead of crashing, and by tightening the tool's parameter description to explicitly tell the model to omit the field rather than pass null.
+
+**Data integrity**
+- `orders.json` ships with `_note_for_designers` hint fields baked into each order (e.g. "Return must be refused") that the model could in principle read directly instead of computing eligibility itself — a shortcut that would make every test look like it passed for the wrong reason. Fixed with `strip_notes.py`, producing a clean `orders_runtime.json` with those fields removed; `data_store.py` loads the stripped copy at runtime, while the original `orders.json` stays untouched in the repo for reference and demo narration.
+- That script initially looked for `orders.json` in the wrong directory, and a later `cd` mid-session caused a second, unrelated "file not found" on the script itself. Fixed by making the script's paths relative to its own file location rather than the caller's working directory.
+- Using real wall-clock time for return-window math would silently drift out of sync with the fixed dataset over time, since the designer notes only make sense against one specific reference date. Fixed by anchoring all eligibility math to a `SIMULATED_NOW` constant (2026-07-29), confirmed by cross-checking every order's note against that date individually.
+
+**Security & hygiene**
+- `/debug/escalations` initially had zero authentication and exposed every ticket's customer PII. Fixed by gating it behind a `DEBUG_KEY` query parameter read from an environment variable, and deliberately returning a 404 (not 401/403) on a missing or wrong key so the endpoint's existence isn't confirmed to an unauthorized prober either.
+- A live Groq API key was accidentally pasted in plaintext during a debugging session. Rotated immediately at console.groq.com/keys before continuing; same response applied later when a GitHub personal access token was pasted mid-session — rotate on exposure, no exceptions, regardless of how the leak happened.
+- Bare `pytest` failed with `ModuleNotFoundError: No module named 'app'` since it doesn't add the current directory to `sys.path`. Fixed by running `python -m pytest` instead, which does.
+- Dead leftover import in `main.py` (`from backend import app`, from an earlier restructuring, not actually importable) — removed.
+
+**Deployment (Render)**
+- Render ignored the root-level `runtime.txt` and defaulted to Python 3.14.3, which broke `pydantic-core`'s build — no prebuilt wheel existed yet for 3.14, and Render's read-only filesystem couldn't run the Rust/maturin compile-from-source fallback. Fixed by setting `PYTHON_VERSION=3.11.9` as a Render environment variable (the more reliable mechanism) in addition to keeping `runtime.txt` (placed inside `backend/`, relative to the configured root directory).
+- The start command was briefly `uvicorn main:app`, which couldn't find the module since the real entry point is `app/main.py`. Fixed to `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+- Render's free tier sleeps after ~15 minutes idle, which would add a 30-60s delay on the first request during the two-week unattended grading window. Addressed proactively (not reactively) with an UptimeRobot monitor pinging `/health` every 5 minutes to keep the instance warm.
+
+**Deployment (CORS)**
+- The real browser widget failed silently against the live backend while `curl`-based tests kept passing. `allow_origins` had a stale placeholder URL instead of the actual deployed Vercel URL — curl doesn't trigger a browser preflight (`OPTIONS`) request, so the mismatch only showed up in a real browser. Fixed by updating `allow_origins` to the real Vercel URL and explicitly adding `"OPTIONS"` to `allow_methods`.
+- One screenshot appeared to show a CSS bug (blue text where the stylesheet specified near-black) — turned out to be Chrome's forced dark mode auto-inverting colors on a page with no declared dark-mode support, not an actual bug in the widget.
