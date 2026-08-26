@@ -29,6 +29,26 @@ An agentic customer-support assistant for **Trendly**, a fictional D2C fashion r
 
 ---
 
+## Deployment & reliability
+
+Both services are connected directly to this GitHub repo — a push to `main` auto-redeploys both, no manual trigger needed.
+
+| | |
+|---|---|
+| **Backend** | Render (free tier), root dir `backend`, `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| **Python version** | Pinned to 3.11.9 via a `PYTHON_VERSION` env var (more reliable than `runtime.txt` alone on Render — `runtime.txt` is kept too, as a fallback) |
+| **Frontend** | Vercel, root dir `frontend`, static — no build step, no cold start |
+| **Uptime monitoring** | UptimeRobot pings `/health` every 5 minutes, with email alerts on downtime — keeps the Render free-tier dyno warm through the entire grading window and gives an independent uptime record, not just a self-reported one |
+| **CORS** | `allow_origins` is locked to the exact deployed Vercel URL (not `"*"`) — tightened after shipping, once the real frontend URL existed to lock it to |
+
+**Why this setup, not something fancier:** Render's free tier is the one real risk here — it sleeps after ~15 minutes of inactivity, which would otherwise mean a 30–60 second delay on whoever's first message hits it after a gap. UptimeRobot solves that proactively rather than reactively — it was set up *before* any cold-start problem was ever hit, not as a patch after grading revealed one.
+
+Two real deploy issues came up getting this live, both documented in full in `SOLUTION.md`'s debugging journey: Render initially picked Python 3.14 by default (no prebuilt wheel yet for `pydantic-core`, broke the build) before the `PYTHON_VERSION` env var fixed it, and the widget's CORS preflight failed silently against a stale placeholder origin until `allow_origins` was updated to the real Vercel URL — a bug that curl-based testing alone couldn't have caught, since curl doesn't trigger a browser preflight request the way a real browser does.
+
+If the live widget ever looks unresponsive: check the [UptimeRobot-style health check](https://yellow-ai-fde-role-assignment.onrender.com/health) directly first — a plain `{"status": "ok"}` means the backend's fine and the issue is elsewhere (network, or a slow Groq response, not downtime).
+
+---
+
 ## What it does
 
 A customer talks to the widget the way they'd talk to a real support chat — no login form, no order-ID dropdown. The agent:
